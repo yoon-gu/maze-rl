@@ -1,6 +1,28 @@
+import numpy as np
 from mesa import Agent, Model
 from mesa.space import MultiGrid
 from mesa.time import RandomActivation
+import gym
+from gym import error, spaces, utils
+from gym.utils import seeding
+
+class MazeEnv(gym.Env):
+    metadata = {'render.modes': ['human']}
+
+    def __init__(self):
+        self.model = Maze(4, 1)
+
+    def step(self, action):
+        info = {}
+        self.model.step()
+        reward = self.model.get_reward()
+        done = not self.model.running
+        state = np.array(self.model.schedule.agents[0].pos)
+        return state, reward, done, info
+    def reset(self):
+        self.model = Maze(4, 1)
+        state = np.array(self.model.schedule.agents[0].pos)
+        return state
 
 class People(Agent):
     def __init__(self, unique_id, model):
@@ -47,3 +69,9 @@ class Maze(Model):
         self.schedule.step()
         if all([a.done for a in self.schedule.agents]):
             self.running = False
+        self.reward = 0.0
+        for agent in self.schedule.agents:
+            self.reward += agent.reward / len(self.schedule.agents)
+    
+    def get_reward(self):
+        return self.reward
