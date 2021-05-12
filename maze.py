@@ -6,23 +6,35 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 
+ACTIONS = [ (0,  1), 
+            (0, -1), 
+            ( 1, 0), 
+            (-1, 0), 
+            ( 0, 0) ]
+
 class MazeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self):
         self.model = Maze(4, 1)
-
+        self.the_agent = self.model.schedule.agents[0]
     def step(self, action):
         info = {}
+        next_pos = np.array(self.state) + np.array(ACTIONS[action])
+        self.the_agent = self.model.schedule.agents[0]
+        self.the_agent.next_pos = tuple(next_pos)
         self.model.step()
         reward = self.model.get_reward()
         done = not self.model.running
-        state = np.array(self.model.schedule.agents[0].pos)
-        return state, reward, done, info
+        state = np.array(self.the_agent.pos)
+        self.state = state
+        return self.state, reward, done, info
+
     def reset(self):
         self.model = Maze(4, 1)
-        state = np.array(self.model.schedule.agents[0].pos)
-        return state
+        state = np.array(self.the_agent.pos)
+        self.state = state
+        return self.state
 
 class People(Agent):
     def __init__(self, unique_id, model):
@@ -30,6 +42,7 @@ class People(Agent):
         self.done = False
         self.reward = None
         self.reward_sum = 0
+        self.next_pos = None
 
     def step(self):
         self.move()
@@ -38,13 +51,20 @@ class People(Agent):
         self.reward = 0.0
         if not self.done:
             possible_steps = self.model.grid.get_neighborhood(
-                self.pos,
-                moore=False,
-                include_center=False
-            )
-            new_position = self.random.choice(possible_steps)
-            self.model.grid.move_agent(self, new_position)
-            self.reward = -1
+                    self.pos,
+                    moore=False,
+                    include_center=False
+                )
+            if self.next_pos is None:
+                new_position = self.random.choice(possible_steps)
+                self.model.grid.move_agent(self, new_position)
+                self.reward = -1
+            else:
+                if self.next_pos in possible_steps:
+                    self.model.grid.move_agent(self, self.next_pos)
+                    self.reward = -1
+                else:
+                    self.reward = -3
 
             if (self.pos[0] == self.model.goal[0]) and (self.pos[1] == self.model.goal[1]):
                 self.done = True
