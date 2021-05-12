@@ -18,7 +18,14 @@ class MazeEnv(gym.Env):
     def __init__(self):
         self.model = Maze(4, 1)
         self.the_agent = self.model.schedule.agents[0]
+        self.action_space = spaces.Discrete(len(ACTIONS))
+        self.observation_size = 2
+        self.observation_space = spaces.Box(
+            low=0, high=max(self.model.width, self.model.height), shape=(self.observation_size,))
+        self.counter = 0
+
     def step(self, action):
+        self.counter += 1
         info = {}
         next_pos = np.array(self.state) + np.array(ACTIONS[action])
         self.the_agent = self.model.schedule.agents[0]
@@ -26,6 +33,8 @@ class MazeEnv(gym.Env):
         self.model.step()
         reward = self.model.get_reward()
         done = not self.model.running
+        if self.counter > 100:
+            done = True
         state = np.array(self.the_agent.pos)
         self.state = state
         return self.state, reward, done, info
