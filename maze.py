@@ -6,19 +6,20 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 
-ACTIONS = [ (0,  1), 
-            (0, -1), 
-            ( 1, 0), 
-            (-1, 0), 
-            ( 0, 0) ]
+ACTIONS = [ (0,  1),  # RIGHT
+            (0, -1),  # LEFT
+            ( 1, 0),  # DOWN
+            (-1, 0),  # UP
+            ( 0, 0) ] # STAY
 
 class MazeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, width, height):
+    def __init__(self, width, height, start=(0,0)):
         self.width = width
         self.height = height
-        self.model = Maze(width, height)
+        self.start = start
+        self.model = Maze(width, height, start)
         self.the_agent = self.model.schedule.agents[0]
         self.action_space = spaces.Discrete(len(ACTIONS))
         self.observation_size = 2
@@ -36,13 +37,14 @@ class MazeEnv(gym.Env):
         reward = self.model.get_reward()
         done = not self.model.running
 
-        state = np.array(self.the_agent.pos)
+        state = self.the_agent.pos
         self.state = state
         return self.state, reward, done, info
 
     def reset(self):
-        self.model = Maze(self.width, self.height)
-        state = np.array(self.the_agent.pos)
+        self.model = Maze(self.width, self.height, self.start)
+        self.the_agent = self.model.schedule.agents[0]
+        state = self.the_agent.pos
         self.state = state
         return self.state
     
@@ -85,7 +87,7 @@ class People(Agent):
                     self.model.grid.move_agent(self, self.next_pos)
                     self.reward = -1
                 else:
-                    self.reward = -3
+                    self.reward = -5
 
             if (self.pos[0] == self.model.goal[0]) and (self.pos[1] == self.model.goal[1]):
                 self.done = True
