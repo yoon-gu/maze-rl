@@ -15,8 +15,10 @@ ACTIONS = [ (0,  1),
 class MazeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self):
-        self.model = Maze(4, 1)
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.model = Maze(width, height)
         self.the_agent = self.model.schedule.agents[0]
         self.action_space = spaces.Discrete(len(ACTIONS))
         self.observation_size = 2
@@ -33,17 +35,27 @@ class MazeEnv(gym.Env):
         self.model.step()
         reward = self.model.get_reward()
         done = not self.model.running
-        if self.counter > 100:
-            done = True
+
         state = np.array(self.the_agent.pos)
         self.state = state
         return self.state, reward, done, info
 
     def reset(self):
-        self.model = Maze(4, 1)
+        self.model = Maze(self.width, self.height)
         state = np.array(self.the_agent.pos)
         self.state = state
         return self.state
+    
+    def render(self):
+        world = 255 * np.ones((self.width, self.height, 3), dtype=np.uint8)
+        start_x, start_y = self.model.start
+        goal_x, goal_y = self.model.goal
+        world[start_x, start_y, :] = [0, 0, 0]
+        world[goal_x, goal_y, :] = [0, 0, 255]
+        for agent in self.model.schedule.agents:
+            x, y = agent.pos
+            world[x, y, :] = [128, 128, 128]
+        return world
 
 class People(Agent):
     def __init__(self, unique_id, model):
@@ -81,10 +93,11 @@ class People(Agent):
         self.reward_sum += self.reward
 
 class Maze(Model):
-    def __init__(self, width=4, height=1, start=(0,0)):
+    def __init__(self, width, height, start=(0,0)):
         super().__init__()
         self.width = width
         self.height = height
+        self.start = start
         self.goal = (width - 1, height - 1)
         # Create agents
         people = People(self.next_id(), self)
