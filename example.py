@@ -1,7 +1,7 @@
 from maze import MazeEnv, ACTIONS
 import numpy as np
 
-env = MazeEnv()
+env = MazeEnv(4, 4)
 state = env.reset()
 
 num_episode = 20
