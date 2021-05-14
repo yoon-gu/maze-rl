@@ -3,7 +3,7 @@ from maze import MazeEnv
 from pprint import pprint
 
 width, height = 6, 6
-obstacle_positions = [(2, 2), (5, 3), (1, 3)]
+obstacle_positions = [(2, 2), (5, 3), (1, 3), (3,5)]
 env = MazeEnv(width, height, (0, 0), obstacle_positions)
 Q, N = approximate_q_function(env, 5000)
 
