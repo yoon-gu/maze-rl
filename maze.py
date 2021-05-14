@@ -9,16 +9,16 @@ from gym.utils import seeding
 ACTIONS = [ (0,  1),  # RIGHT
             (0, -1),  # LEFT
             ( 1, 0),  # DOWN
-            (-1, 0),  # UP
-            ( 0, 0) ] # STAY
+            (-1, 0)]  # UP
 
 class MazeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, width, height, start=(0,0)):
+    def __init__(self, width, height, start=(0,0), obstacle_positions=[]):
         self.width = width
         self.height = height
         self.start = start
+        self.obstacle_positions = obstacle_positions
         self.model = Maze(width, height, start)
         self.the_agent = self.model.schedule.agents[0]
         self.action_space = spaces.Discrete(len(ACTIONS))
@@ -42,7 +42,7 @@ class MazeEnv(gym.Env):
         return self.state, reward, done, info
 
     def reset(self):
-        self.model = Maze(self.width, self.height, self.start)
+        self.model = Maze(self.width, self.height, self.start, self.obstacle_positions)
         self.the_agent = self.model.schedule.agents[0]
         state = self.the_agent.pos
         self.state = state
@@ -52,11 +52,15 @@ class MazeEnv(gym.Env):
         world = 255 * np.ones((self.width, self.height, 3), dtype=np.uint8)
         start_x, start_y = self.model.start
         goal_x, goal_y = self.model.goal
-        world[start_x, start_y, :] = [0, 0, 0]
+        world[start_x, start_y, :] = [255, 128, 0]
         world[goal_x, goal_y, :] = [0, 0, 255]
         for agent in self.model.schedule.agents:
             x, y = agent.pos
-            world[x, y, :] = [128, 128, 128]
+            if type(agent) is People:
+                world[x, y, :] = [128, 128, 128]
+            elif type(agent) is Obstacle:
+                world[x, y, :] = [0, 0, 0]
+
         return world
 
 class People(Agent):
@@ -78,6 +82,8 @@ class People(Agent):
                     moore=False,
                     include_center=False
                 )
+
+            possible_steps = list(set(possible_steps).difference(set(self.model.obstacle_positions)))
             if self.next_pos is None:
                 new_position = self.random.choice(possible_steps)
                 self.model.grid.move_agent(self, new_position)
@@ -94,13 +100,18 @@ class People(Agent):
                 self.reward = 20
         self.reward_sum += self.reward
 
+class Obstacle(Agent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
 class Maze(Model):
-    def __init__(self, width, height, start=(0,0)):
+    def __init__(self, width, height, start=(0,0), obstacle_positions=[]):
         super().__init__()
         self.width = width
         self.height = height
         self.start = start
         self.goal = (width - 1, height - 1)
+        self.obstacle_positions = obstacle_positions
         # Create agents
         people = People(self.next_id(), self)
         self.schedule = RandomActivation(self)
@@ -109,13 +120,20 @@ class Maze(Model):
         self.grid.place_agent(people, start)
         self.running = True
         
+        # Create obstacles
+        for x, y in self.obstacle_positions:
+            o = Obstacle(self.next_id(), self)
+            self.schedule.add(o)
+            self.grid.place_agent(o, (x, y))
+
     def step(self):
         self.schedule.step()
-        if all([a.done for a in self.schedule.agents]):
+        if all([a.done for a in self.schedule.agents if type(a) is People]):
             self.running = False
         self.reward = 0.0
         for agent in self.schedule.agents:
-            self.reward += agent.reward / len(self.schedule.agents)
+            if type(agent) is People:
+                self.reward += agent.reward
     
     def get_reward(self):
         return self.reward
