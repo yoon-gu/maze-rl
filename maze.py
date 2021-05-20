@@ -14,12 +14,16 @@ ACTIONS = [ (0,  1),  # RIGHT
 class MazeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, width, height, start=(0,0), obstacle_positions=[]):
+    def __init__(self, width, height, start=(0,0), goal=None, obstacle_positions=[]):
         self.width = width
         self.height = height
         self.start = start
         self.obstacle_positions = obstacle_positions
-        self.model = Maze(width, height, start)
+        if goal is None:
+            self.goal = (width - 1, height - 1)
+        else:
+            self.goal = goal
+        self.model = Maze(width, height, start, goal, obstacle_positions)
         self.the_agent = self.model.schedule.agents[0]
         self.action_space = spaces.Discrete(len(ACTIONS))
         self.observation_size = 2
@@ -42,7 +46,7 @@ class MazeEnv(gym.Env):
         return self.state, reward, done, info
 
     def reset(self):
-        self.model = Maze(self.width, self.height, self.start, self.obstacle_positions)
+        self.model = Maze(self.width, self.height, self.start, self.goal, self.obstacle_positions)
         self.the_agent = self.model.schedule.agents[0]
         state = self.the_agent.pos
         self.state = state
@@ -105,12 +109,15 @@ class Obstacle(Agent):
         super().__init__(unique_id, model)
 
 class Maze(Model):
-    def __init__(self, width, height, start=(0,0), obstacle_positions=[]):
+    def __init__(self, width, height, start=(0, 0), goal=None, obstacle_positions=[]):
         super().__init__()
         self.width = width
         self.height = height
         self.start = start
-        self.goal = (width - 1, height - 1)
+        if goal is None:
+            self.goal = (width - 1, height - 1)
+        else:
+            self.goal = goal
         self.obstacle_positions = obstacle_positions
         # Create agents
         people = People(self.next_id(), self)
