@@ -173,3 +173,22 @@ print(episode, sum([r for _, _, r in episode]))
 
 
 ```
+
+```python
+obstacle_positions = []
+for x in range(7, 20):
+    if x % 4 == 3:
+        continue
+    for y in range(3, 19, 2):
+        obstacle_positions.append((x, y))
+
+ws_positions = [(0, 4), (0, 10), (0, 16)]
+ws_obstacles = []
+for x, y in ws_positions:
+    ws_obstacles += [(x+1, y-1), (x+1, y), (x+1, y+1)]
+
+env = MazeEnv(21, 21, (20, 10), ws_positions[1], obstacle_positions + ws_obstacles)
+env.reset()
+plt.imshow(env.render())
+plt.show()
+```
