@@ -6,17 +6,18 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 from mesa.datacollection import DataCollector
+import pickle
 
 ACTIONS = [ (0,  1),  # RIGHT
             (0, -1),  # LEFT
             ( 1, 0),  # DOWN
             (-1, 0)]  # UP
 
-class Mapf(Model):
+class MultipleAgentsMaze(Model):
     def __init__(self, width, height,
                 start_candidates, goal_candidates,
                 obstacle_positions,
-                num_agents):
+                num_agents, policy=None):
         super().__init__()
         self.width = width
         self.height = height
@@ -24,6 +25,7 @@ class Mapf(Model):
         self.goal_candidates = goal_candidates
         self.obstacle_positions = obstacle_positions
         self.collision_count = 0
+        self.policy = policy
 
         assert len(set(start_candidates).intersection(set(obstacle_positions))) == 0
         assert len(set(goal_candidates).intersection(set(obstacle_positions))) == 0
@@ -40,7 +42,7 @@ class Mapf(Model):
         for _ in range(num_agents):
             start = self.start_candidates[np.random.choice(len(self.start_candidates))]
             goal = self.goal_candidates[np.random.choice(len(self.goal_candidates))]
-            people = People(self.next_id(), self, start, goal)
+            people = People(self.next_id(), self, start, goal, self.policy)
 
             self.schedule.add(people)
             self.grid.place_agent(people, start)
@@ -57,7 +59,7 @@ class Mapf(Model):
         self.datacollector.collect(self)
         self.schedule.step()
 
-        agent_positions = set([a.pos for a in self.agents])
+        agent_positions = set([a.pos for a in self.agents if not a.done])
         for pos in agent_positions:
             agents_at_the_cell = self.grid.get_cell_list_contents(pos)
             if len(agents_at_the_cell) > 1:
@@ -75,7 +77,7 @@ class Mapf(Model):
 
 
 class People(Agent):
-    def __init__(self, unique_id, model, start, goal):
+    def __init__(self, unique_id, model, start, goal, policy):
         super().__init__(unique_id, model)
         self.done = False
         self.start = start
@@ -83,6 +85,10 @@ class People(Agent):
         self.reward = None
         self.reward_sum = 0
         self.next_pos = None
+        if policy is None:
+            self.policy = lambda pos: self.random.choice(self.model.grid.get_neighborhood(pos, moore=False, include_center=False))
+        else:
+            self.policy = policy
 
     def step(self):
         self.move()
@@ -97,20 +103,19 @@ class People(Agent):
                 )
 
             possible_steps = list(set(possible_steps).difference(set(self.model.obstacle_positions)))
-            if self.next_pos is None:
-                new_position = self.random.choice(possible_steps)
-                self.model.grid.move_agent(self, new_position)
+            self.next_pos = self.policy(self.pos)
+            print(self.pos)
+
+            if self.next_pos in possible_steps:
+                self.model.grid.move_agent(self, self.next_pos)
                 self.reward = -1
             else:
-                if self.next_pos in possible_steps:
-                    self.model.grid.move_agent(self, self.next_pos)
-                    self.reward = -1
-                else:
-                    self.reward = -5
+                self.reward = -5
 
             if (self.pos[0] == self.goal[0]) and (self.pos[1] == self.goal[1]):
                 self.done = True
                 self.reward = 20
+
         self.reward_sum += self.reward
 
 class Obstacle(Agent):
