@@ -104,7 +104,6 @@ class People(Agent):
 
             possible_steps = list(set(possible_steps).difference(set(self.model.obstacle_positions)))
             self.next_pos = self.policy(self.pos)
-            print(self.pos)
 
             if self.next_pos in possible_steps:
                 self.model.grid.move_agent(self, self.next_pos)
